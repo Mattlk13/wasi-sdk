@@ -43,7 +43,10 @@ override LLVM_CMAKE_FLAGS += -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
 		    -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
 endif
 
-TARGETS = wasm32-wasi wasm32-wasip1 wasm32-wasip2 wasm32-wasip1-threads wasm32-wasi-threads
+# wasm32-wasi is now deprecated (?)
+# wasm32-wasi-threads wasm32-wasip1-threads
+# wasm32-wasip2 
+TARGETS = wasm32-wasip1  
 
 # Only the major version is needed for Clang, see https://reviews.llvm.org/D125860.
 CLANG_VERSION=$(shell $(VERSION_SCRIPT) llvm-major --llvm-dir=$(LLVM_PROJ_DIR))
@@ -90,7 +93,7 @@ build/llvm.BUILT:
 		-DLLVM_INCLUDE_BENCHMARKS=OFF \
 		-DLLVM_INCLUDE_EXAMPLES=OFF \
 		-DLLVM_TARGETS_TO_BUILD=WebAssembly \
-		-DLLVM_DEFAULT_TARGET_TRIPLE=wasm32-wasi \
+		-DLLVM_DEFAULT_TARGET_TRIPLE=wasm32-wasi-p1 \
 		-DLLVM_ENABLE_PROJECTS="lld;clang;clang-tools-extra" \
 		$(if $(patsubst 9,,$(CLANG_VERSION)), \
 	             $(if $(patsubst 10,,$(CLANG_VERSION)), \
@@ -143,11 +146,11 @@ WASI_LIBC_MAKEFLAGS = \
 	TARGET_TRIPLE=$(1)
 
 build/wasi-libc.BUILT: build/compiler-rt.BUILT build/wasm-component-ld.BUILT
-	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasi) default libc_so
+#	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasi) default libc_so
 	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasip1) default libc_so
-	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasip2) WASI_SNAPSHOT=p2 default libc_so
-	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasi-threads) THREAD_MODEL=posix
-	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasip1-threads) THREAD_MODEL=posix
+# 	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasip2) WASI_SNAPSHOT=p2 default libc_so
+#	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasi-threads) THREAD_MODEL=posix
+#	$(MAKE) $(call WASI_LIBC_MAKEFLAGS,wasm32-wasip1-threads) THREAD_MODEL=posix
 	touch build/wasi-libc.BUILT
 
 build/compiler-rt.BUILT: build/llvm.BUILT
@@ -169,6 +172,7 @@ build/compiler-rt.BUILT: build/llvm.BUILT
 		-DCOMPILER_RT_DEFAULT_TARGET_ONLY=On \
 		-DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
 		-DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP)" \
+		-DLLVM_DEFAULT_TARGET_TRIPLE=wasm32-wasi-p1 \
 		-DLLVM_CONFIG_PATH=$(ROOT_DIR)/build/llvm/bin/llvm-config \
 		-DCOMPILER_RT_OS_DIR=wasi \
 		-DCMAKE_INSTALL_PREFIX=$(PREFIX)/lib/clang/$(CLANG_VERSION)/ \
@@ -228,8 +232,8 @@ LIBCXX_CMAKE_FLAGS = \
     -DUNIX:BOOL=ON \
     --debug-trycompile \
     -DCMAKE_SYSROOT=$(BUILD_PREFIX)/share/wasi-sysroot \
-    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) $(EXTRA_CFLAGS) $(4) --target=$(3) -D__USING_WASM_EXCEPTIONS__ -fwasm-exceptions" \
-    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) $(EXTRA_CXXFLAGS) $(4) --target=$(3) -D__USING_WASM_EXCEPTIONS__ -fwasm-exceptions" \
+    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) $(EXTRA_CFLAGS) $(4) --target=$(3) -D__USING_WASM_EXCEPTIONS__ -fwasm-exceptions -fdeclspec -std=c23" \
+    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) $(EXTRA_CXXFLAGS) $(4) --target=$(3) -D__USING_WASM_EXCEPTIONS__ -fwasm-exceptions -fdeclspec" \
     -DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/$(3) \
     -DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/$(3) \
 	-DLLVM_ENABLE_RTTI=ON \
@@ -251,11 +255,11 @@ define BUILD_LIBCXX
 endef
 
 build/libcxx.BUILT: build/llvm.BUILT build/wasi-libc.BUILT
-	$(call BUILD_LIBCXX,OFF,ON,wasm32-wasi)
+#	$(call BUILD_LIBCXX,OFF,ON,wasm32-wasi)
 	$(call BUILD_LIBCXX,OFF,ON,wasm32-wasip1)
-	$(call BUILD_LIBCXX,OFF,ON,wasm32-wasip2)
-	$(call BUILD_LIBCXX,ON,OFF,wasm32-wasi-threads,-pthread)
-	$(call BUILD_LIBCXX,ON,OFF,wasm32-wasip1-threads,-pthread)
+# 	$(call BUILD_LIBCXX,OFF,ON,wasm32-wasip2)
+#	$(call BUILD_LIBCXX,ON,OFF,wasm32-wasi-threads,-pthread)
+#	$(call BUILD_LIBCXX,ON,OFF,wasm32-wasip1-threads,-pthread)
 	# As of this writing, `clang++` will ignore the above include dirs unless this one also exists:
 	mkdir -p $(BUILD_PREFIX)/share/wasi-sysroot/include/c++/v1
 	touch build/libcxx.BUILT
